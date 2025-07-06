@@ -19,14 +19,12 @@ package controller
 import (
 	"context"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	exposedeployv1alpha1 "github.com/example/ExposeDeployment/api/v1alpha1"
 )
@@ -125,42 +123,6 @@ func (r *ExposeDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&exposedeployv1alpha1.ExposeDeployment{}).
 		Named("exposedeployment").
 		Complete(r)
-}
-
-// deploymentForExposeDeployment returns a Deployment object for data from m.
-func (r *ExposeDeploymentReconciler) deploymentForExposeDeployment(m *exposedeployv1alpha1.ExposeDeployment) *appsv1.Deployment {
-	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      m.Name,
-			Namespace: m.Namespace,
-			Labels:    labelsForApp(m.Name),
-		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labelsForApp(m.Name),
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labelsForApp(m.Name),
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Name:  "expose-deployment",
-						Image: m.Spec.Image,
-						Ports: []corev1.ContainerPort{{
-							Name:          "http",
-							ContainerPort: 80,
-						}},
-						// keep pods running command
-						Command: []string{"sleep", "infinity"},
-					}},
-				},
-			},
-			Replicas: &m.Spec.Replicas,
-		},
-	}
-	controllerutil.SetControllerReference(m, dep, r.Scheme)
-	return dep
 }
 
 // labelsForApp creates a simple set of labels for ExposeDeployment.
