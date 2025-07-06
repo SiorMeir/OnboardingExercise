@@ -1,0 +1,11 @@
+apiVersion: exposedeploy.example.com/v1alpha1
+kind: ExposeDeployment
+metadata:
+  name: first-exposedeployment-object
+spec:
+  replicas: 1
+  image: ubuntu:22.04
+  minavailabletimesec: 10
+  portdefinition:
+    port: 80
+    targetport: 80

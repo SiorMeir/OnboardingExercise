@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- exposedeploy_v1alpha1_exposedeployment.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
