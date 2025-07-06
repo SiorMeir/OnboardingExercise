@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -43,9 +42,9 @@ type ExposeDeploymentSpec struct {
 type ExposeDeploymentStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	ReadyPods     int32 `json:"readyPods,omitempty"`
-	AvailablePods int32 `json:"availablePods,omitempty"`
-	// TODO: add conditions
+	ReadyPods     int32       `json:"readyPods,omitempty"`
+	AvailablePods int32       `json:"availablePods,omitempty"`
+	Conditions    []condition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -68,12 +67,21 @@ type ExposeDeploymentList struct {
 	Items           []ExposeDeployment `json:"items"`
 }
 
+// Custom condition types for ExposeDeployment
+type MyPodConditionType string
+
+const (
+	LastReconcileSucceeded MyPodConditionType = "LastReconcileSucceeded"
+	Ready                  MyPodConditionType = "Ready"
+	Available              MyPodConditionType = "Available"
+)
+
 type condition struct {
-	Type               corev1.ConditionStatus `json:"type,omitempty"` // TODO: fix this
-	Status             corev1.ConditionStatus `json:"status,omitempty"`
-	Message            string                 `json:"message,omitempty"`
-	Reason             string                 `json:"reason,omitempty"`
-	LastTransitionTime metav1.Time            `json:"lastTransitionTime,omitempty"`
+	Type               MyPodConditionType `json:"type,omitempty"`
+	Status             bool               `json:"status,omitempty"`
+	Message            string             `json:"message,omitempty"`
+	Reason             string             `json:"reason,omitempty"`
+	LastTransitionTime metav1.Time        `json:"lastTransitionTime,omitempty"`
 }
 
 type PortDefinition struct {
