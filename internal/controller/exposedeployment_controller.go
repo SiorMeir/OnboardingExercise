@@ -65,7 +65,6 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	// currentPodCount := len(podList.Items)
 	desiredReplicas := int(exposedeploy.Spec.Replicas)
 	currentPodCount := len(podList.Items)
 
@@ -94,8 +93,9 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// 4. Scale down if needed ,exclude terminating pods by deletionTimestamp
-	if len(podList.Items) > desiredReplicas {
-		excess := len(podList.Items) - desiredReplicas
+	numOfTerminatingPods := calculateNumOfTerminatingPods(podList)
+	if currentPodCount-numOfTerminatingPods > desiredReplicas {
+		excess := currentPodCount - desiredReplicas - numOfTerminatingPods
 		for i := range excess {
 			pod := podList.Items[i]
 			if err := r.Delete(ctx, &pod); err != nil {
@@ -128,4 +128,14 @@ func (r *ExposeDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // labelsForApp creates a simple set of labels for ExposeDeployment.
 func labelsForApp(name string) map[string]string {
 	return map[string]string{"cr_name": name}
+}
+
+func calculateNumOfTerminatingPods(podList *corev1.PodList) int {
+	numOfTerminatingPods := 0
+	for _, pod := range podList.Items {
+		if pod.DeletionTimestamp != nil {
+			numOfTerminatingPods++
+		}
+	}
+	return numOfTerminatingPods
 }
