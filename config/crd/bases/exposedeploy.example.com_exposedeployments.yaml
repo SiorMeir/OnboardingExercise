@@ -44,6 +44,9 @@ spec:
                   Foo is an example field of ExposeDeployment. Edit exposedeployment_types.go to remove/update
                   Foo string `json:"foo,omitempty"`
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               minavailabletimesec:
                 format: int32
                 type: integer
@@ -71,6 +74,23 @@ spec:
               availablePods:
                 format: int32
                 type: integer
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: boolean
+                    type:
+                      description: Custom condition types for ExposeDeployment
+                      type: string
+                  type: object
+                type: array
               readyPods:
                 description: |-
                   INSERT ADDITIONAL STATUS FIELD - define observed state of cluster

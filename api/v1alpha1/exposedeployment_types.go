@@ -30,11 +30,11 @@ type ExposeDeploymentSpec struct {
 
 	// Foo is an example field of ExposeDeployment. Edit exposedeployment_types.go to remove/update
 	// Foo string `json:"foo,omitempty"`
-	// +kubebuilder:validation:Immutable
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	Image string `json:"image"`
 	// +kubebuilder:validation:Maximum=10
 	Replicas            int32          `json:"replicas"`
-	MinAvailableTimeSec int32          `json:"minavailabletimesec"` // TODO: implement logic for odd number of this
+	MinAvailableTimeSec int32          `json:"minavailabletimesec"` // TODO: implement logic for odd number of this, might be a webhook
 	PortDefinition      PortDefinition `json:"portdefinition,omitempty"`
 }
 
@@ -42,9 +42,9 @@ type ExposeDeploymentSpec struct {
 type ExposeDeploymentStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	ReadyPods     int32       `json:"readyPods,omitempty"`
-	AvailablePods int32       `json:"availablePods,omitempty"`
-	Conditions    []condition `json:"conditions,omitempty"`
+	ReadyPods     int32             `json:"readyPods,omitempty"`
+	AvailablePods int32             `json:"availablePods,omitempty"`
+	Conditions    []CustomCondition `json:"conditions,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -76,7 +76,7 @@ const (
 	Available              MyPodConditionType = "Available"
 )
 
-type condition struct {
+type CustomCondition struct {
 	Type               MyPodConditionType `json:"type,omitempty"`
 	Status             bool               `json:"status,omitempty"`
 	Message            string             `json:"message,omitempty"`
