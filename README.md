@@ -6,12 +6,12 @@ a service `built-in` for network exposure.
 
 ### 🚧 Environment Setup
 
-* [ ] Install Go (≥ 1.21)
-* [ ] Install `operator-sdk`
-* [ ] Install `kubectl`
-* [ ] Set up a local Kubernetes cluster (e.g., Minikube)
-* [ ] Scaffold the operator project using `operator-sdk`
-* [ ] Enable necessary RBAC permissions
+* [X] Install Go (≥ 1.21)
+* [X] Install `operator-sdk`
+* [X] Install `kubectl`
+* [X] Set up a local Kubernetes cluster with Kind
+* [X] Scaffold the operator project using `operator-sdk`
+* [X] Enable necessary RBAC permissions
 
 ---
 
@@ -19,17 +19,17 @@ a service `built-in` for network exposure.
 
 * [ ] Define `ExposeDeployment` CRD with the following `spec` fields:
 
-  * [ ] `Image` (non-empty string, immutable)
-  * [ ] `Replicas` (max 10)
+  * [X] `Image` (non-empty string, immutable)
+  * [X] `Replicas` (max 10)
   * [ ] `MinAvailableTimeSec` (double if odd)
   * [ ] `Args` (command-line args)
   * [ ] `Envs` (environment variables)
-  * [ ] `Ports` with:
 
+  * [ ] `Ports` with:
     * [ ] `TargetPort`
     * [ ] `Port`
-* [ ] Define `status` with:
 
+* [ ] Define `status` with:
   * [ ] `ReadyPods`
   * [ ] `AvailablePods`
   * [ ] `Conditions` array with fields:
