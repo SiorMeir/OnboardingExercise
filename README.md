@@ -1,16 +1,97 @@
 # onboardingexercise
-// TODO(user): Add simple overview of use/purpose
+As part of Run:AI's onboarding, we need to create a Simple `ExposeDeployment` Kubernetes resource that acts similarly to `Deployment`, but with 
+a service `built-in` for network exposure.
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+## ✅ ExposeDeployment Controller - Development Checklist
 
-## Getting Started
+### 🚧 Environment Setup
 
-### Prerequisites
-- go version v1.23.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+* [ ] Install Go (≥ 1.21)
+* [ ] Install `operator-sdk`
+* [ ] Install `kubectl`
+* [ ] Set up a local Kubernetes cluster (e.g., Minikube)
+* [ ] Scaffold the operator project using `operator-sdk`
+* [ ] Enable necessary RBAC permissions
+
+---
+
+### 📦 Define Custom Resource Definition (CRD)
+
+* [ ] Define `ExposeDeployment` CRD with the following `spec` fields:
+
+  * [ ] `Image` (non-empty string, immutable)
+  * [ ] `Replicas` (max 10)
+  * [ ] `MinAvailableTimeSec` (double if odd)
+  * [ ] `Args` (command-line args)
+  * [ ] `Envs` (environment variables)
+  * [ ] `Ports` with:
+
+    * [ ] `TargetPort`
+    * [ ] `Port`
+* [ ] Define `status` with:
+
+  * [ ] `ReadyPods`
+  * [ ] `AvailablePods`
+  * [ ] `Conditions` array with fields:
+
+    * [ ] `Type` (LastReconcileSucceeded, Ready, Available)
+    * [ ] `Status` (bool)
+    * [ ] `Message` (string)
+    * [ ] `Reason` (camel case word)
+    * [ ] `LastTransitionTime` (timestamp)
+
+---
+
+### 🔁 Controller Logic
+
+* [ ] Create controller that watches `ExposeDeployment` CRs
+* [ ] Set up the manager with cache limited to owned pods
+* [ ] Reconciliation logic:
+
+  * [ ] Create pods owned by the CR (label: `ExposeDeployment: <CR name>`)
+  * [ ] Create non-owned services for exposed ports
+  * [ ] Maintain desired replica count
+  * [ ] Validate and transform `MinAvailableTimeSec` if needed
+  * [ ] Track pod readiness and availability
+  * [ ] Update CR `status` and `conditions` accordingly
+  * [ ] Ensure reconciliation is idempotent and only affects `spec`-defined fields
+  * [ ] On deletion of CR, clean up associated pods and services
+
+---
+
+### 🧪 Testing
+
+* [ ] Test creation and update of `ExposeDeployment`
+* [ ] Test pod readiness tracking
+* [ ] Test service creation and accessibility
+* [ ] Use `kubectl port-forward` and `curl` to verify service-pod connectivity
+* [ ] Confirm replicas max constraint and odd `MinAvailableTimeSec` handling
+* [ ] Validate cleanup on CR deletion
+* [ ] Use `envtest` or controller-runtime test framework
+
+---
+
+### ⚠️ Error Handling & Logging
+
+* [ ] Add structured logging throughout reconciliation
+* [ ] Handle and log all errors gracefully
+* [ ] Ensure requeues on failure where applicable
+
+---
+
+### 📚 Documentation
+
+* [ ] Document CRD spec and usage
+* [ ] Add deployment guide
+* [ ] Describe testing steps and troubleshooting tips
+* [ ] Mention required tools and prerequisites
+
+---
+
+### 📎 Optional: Advanced Features
+
+* [ ] Admission Webhooks for validation/immutability of fields
+* [ ] Readiness probes or lifecycle hooks
 
 ### To Deploy on the cluster
 **Build and push your image to the location specified by `IMG`:**
@@ -109,27 +190,3 @@ if you create webhooks, you need to use the above command with
 the '--force' flag and manually ensure that any custom configuration
 previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
 is manually re-applied afterwards.
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
-
-Copyright 2025.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
