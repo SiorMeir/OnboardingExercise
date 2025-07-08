@@ -2,6 +2,8 @@
 As part of Run:AI's onboarding, we need to create a Simple `ExposeDeployment` Kubernetes resource that acts similarly to `Deployment`, but with 
 a service `built-in` for network exposure.
 
+Exercise description [here](https://runai.atlassian.net/wiki/spaces/EN/pages/2698805322/ExposeDeployment+k8s+Controller+exerecise)
+
 ## ✅ ExposeDeployment Controller - Development Checklist
 
 ### 🚧 Environment Setup
