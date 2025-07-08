@@ -35,6 +35,7 @@ type ExposeDeploymentSpec struct {
 	// +kubebuilder:validation:Maximum=10
 	Replicas            int32          `json:"replicas"`
 	MinAvailableTimeSec int32          `json:"minavailabletimesec"` // TODO: implement logic for odd number of this, might be a webhook
+	Env                 []string       `json:"env,omitempty"`
 	PortDefinition      PortDefinition `json:"portdefinition,omitempty"`
 }
 

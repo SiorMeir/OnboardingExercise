@@ -82,6 +82,7 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 						Name:    "expose-deployment",
 						Image:   exposedeploy.Spec.Image,
 						Command: []string{"sleep", "infinity"},
+						Args:    exposedeploy.Spec.Env,
 					}},
 				},
 			}

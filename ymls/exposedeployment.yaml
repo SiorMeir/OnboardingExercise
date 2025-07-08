@@ -6,6 +6,9 @@ spec:
   replicas: 1
   image: ubuntu:22.04
   minavailabletimesec: 10
+  env:
+    - name: EXAMPLE_ENV
+      value: "example-value"
   portdefinition:
     port: 80
     targetport: 80
