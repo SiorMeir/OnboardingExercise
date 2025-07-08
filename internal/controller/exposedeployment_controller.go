@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -139,4 +140,16 @@ func calculateNumOfTerminatingPods(podList *corev1.PodList) int {
 		}
 	}
 	return numOfTerminatingPods
+}
+
+// calculateAvailablePods creates a list of available pods with respect to the minavailabletimesec
+func (r *ExposeDeploymentReconciler) calculateAvailablePods(exposedeploy *exposedeployv1alpha1.ExposeDeployment, podList *corev1.PodList) []corev1.Pod {
+	availablePods := []corev1.Pod{}
+	for _, pod := range podList.Items {
+		timeSinceCreation := time.Since(pod.CreationTimestamp.Time)
+		if pod.DeletionTimestamp == nil && timeSinceCreation > time.Duration(exposedeploy.Spec.MinAvailableTimeSec)*time.Second {
+			availablePods = append(availablePods, pod)
+		}
+	}
+	return availablePods
 }
