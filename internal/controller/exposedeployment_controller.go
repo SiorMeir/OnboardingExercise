@@ -76,6 +76,13 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 					GenerateName: exposedeploy.Name + "-pod-",
 					Namespace:    req.Namespace,
 					Labels:       labelsForApp(exposedeploy.Name),
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "exposedeploy.example.com/v1alpha1",
+							Kind:       "ExposeDeployment",
+							Name:       exposedeploy.Name,
+						},
+					},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
@@ -163,11 +170,28 @@ func (r *ExposeDeploymentReconciler) updateExposeDeploymentStatus(exposedeploy *
 	availablePods := r.calculateAvailablePods(exposedeploy, podList)
 	exposedeploy.Status.AvailablePods = int32(len(availablePods))
 	exposedeploy.Status.ReadyPods = int32(len(availablePods))
-	exposedeploy.Status.Conditions = append(exposedeploy.Status.Conditions, exposedeployv1alpha1.CustomCondition{
-		Type:               exposedeployv1alpha1.LastReconcileSucceeded,
-		Status:             true,
-		LastTransitionTime: metav1.Now(),
-		Reason:             "updateResource",
-		Message:            "ExposeDeployment reconciled successfully",
-	})
+
+	// loop through conditions, if the condition is LastReconcileSucceeded, update the status to true
+	for _, condition := range exposedeploy.Status.Conditions {
+		if condition.Type == exposedeployv1alpha1.LastReconcileSucceeded {
+			condition.Status = true
+			condition.LastTransitionTime = metav1.Now()
+			condition.Reason = "updateResource"
+			condition.Message = "ExposeDeployment reconciled successfully"
+
+		}
+		if condition.Type == exposedeployv1alpha1.Available {
+			if exposedeploy.Status.AvailablePods == exposedeploy.Spec.Replicas {
+				condition.Status = true
+				condition.LastTransitionTime = metav1.Now()
+				condition.Reason = "allPodsAvailable"
+				condition.Message = "ExposeDeployment is available and service is as expected"
+			} else {
+				condition.Status = false
+				condition.LastTransitionTime = metav1.Now()
+				condition.Reason = "notAllPodsAvailable"
+				condition.Message = "ExposeDeployment is not available and service is not as expected"
+			}
+		}
+	}
 }
