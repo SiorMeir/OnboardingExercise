@@ -3,8 +3,8 @@ kind: ExposeDeployment
 metadata:
   name: first-exposedeployment-object
 spec:
-  replicas: 2
-  image: ubuntu:22.04
+  replicas: 1
+  image: busybox:latest
   minavailabletimesec: 10
   customenv:
     - "echo hello"
