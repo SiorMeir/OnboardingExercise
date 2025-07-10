@@ -3,9 +3,12 @@ kind: ExposeDeployment
 metadata:
   name: first-exposedeployment-object
 spec:
-  replicas: 1
+  replicas: 2
   image: ubuntu:22.04
   minavailabletimesec: 10
+  customenv:
+    - "echo hello"
+
   portdefinition:
     port: 80
     targetport: 80
