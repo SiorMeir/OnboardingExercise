@@ -41,6 +41,7 @@ type ExposeDeploymentReconciler struct {
 // +kubebuilder:rbac:groups=exposedeploy.example.com,resources=exposedeployments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=exposedeploy.example.com,resources=exposedeployments/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -82,6 +83,7 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 							APIVersion: "exposedeploy.example.com/v1alpha1",
 							Kind:       "ExposeDeployment",
 							Name:       exposedeploy.Name,
+							UID:        exposedeploy.UID,
 						},
 					},
 				},
@@ -135,6 +137,15 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	if err = r.Create(ctx, service); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// when the exposedeploy is deleted, gracefully delete the service and all pods
+	if exposedeploy.DeletionTimestamp != nil {
+		result, err := r.gracefullyDeleteResourceAndService(ctx, podList, service)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return result, nil
 	}
 	return ctrl.Result{}, nil
 }
@@ -207,4 +218,25 @@ func (r *ExposeDeploymentReconciler) updateExposeDeploymentStatus(exposedeploy *
 			}
 		}
 	}
+}
+
+func (r *ExposeDeploymentReconciler) gracefullyDeleteResourceAndService(ctx context.Context, podList *corev1.PodList, service *corev1.Service) (ctrl.Result, error) {
+
+	// delete all pods of exposedeploy and wait for them to be deleted
+	for _, pod := range podList.Items {
+		if err := r.Delete(ctx, &pod); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	// wait for all pods to be deleted
+	for _, pod := range podList.Items {
+		if err := r.Get(ctx, client.ObjectKey{Name: pod.Name, Namespace: pod.Namespace}, &pod); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	// delete service of exposedeploy
+	if err := r.Delete(ctx, service); err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
 }
