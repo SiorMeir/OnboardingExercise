@@ -39,6 +39,10 @@ spec:
           spec:
             description: ExposeDeploymentSpec defines the desired state of ExposeDeployment.
             properties:
+              customenv:
+                items:
+                  type: string
+                type: array
               image:
                 description: |-
                   Foo is an example field of ExposeDeployment. Edit exposedeployment_types.go to remove/update
