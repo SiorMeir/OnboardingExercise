@@ -23,24 +23,24 @@ Exercise description [here](https://runai.atlassian.net/wiki/spaces/EN/pages/269
 
   * [X] `Image` (non-empty string, immutable)
   * [X] `Replicas` (max 10)
-  * [ ] `MinAvailableTimeSec` (double if odd)
-  * [ ] `Args` (command-line args)
+  * [X] `MinAvailableTimeSec` (double if odd)
+  * [X] `Args` (command-line args)
   * [ ] `Envs` (environment variables)
 
   * [ ] `Ports` with:
     * [ ] `TargetPort`
     * [ ] `Port`
 
-* [ ] Define `status` with:
-  * [ ] `ReadyPods`
-  * [ ] `AvailablePods`
-  * [ ] `Conditions` array with fields:
+* [X] Define `status` with:
+  * [X] `ReadyPods`
+  * [X] `AvailablePods`
+  * [X] `Conditions` array with fields:
 
-    * [ ] `Type` (LastReconcileSucceeded, Ready, Available)
-    * [ ] `Status` (bool)
-    * [ ] `Message` (string)
-    * [ ] `Reason` (camel case word)
-    * [ ] `LastTransitionTime` (timestamp)
+    * [X] `Type` (LastReconcileSucceeded, Ready, Available)
+    * [X] `Status` (bool)
+    * [X] `Message` (string)
+    * [X] `Reason` (camel case word)
+    * [X] `LastTransitionTime` (timestamp)
 
 ---
 
