@@ -68,7 +68,6 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	desiredReplicas := int(exposedeploy.Spec.Replicas)
 	currentPodCount := len(podList.Items)
-
 	// 3. Scale up if needed
 	if currentPodCount < desiredReplicas {
 		for i := len(podList.Items); i < desiredReplicas; i++ {
@@ -105,6 +104,8 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 		}
 	}
+	// update status of exposedeploy
+	r.updateExposeDeploymentStatus(exposedeploy, podList)
 
 	// create service of exposedeploy based on the portdefinition
 	service := &corev1.Service{
@@ -146,10 +147,27 @@ func calculateNumOfTerminatingPods(podList *corev1.PodList) int {
 func (r *ExposeDeploymentReconciler) calculateAvailablePods(exposedeploy *exposedeployv1alpha1.ExposeDeployment, podList *corev1.PodList) []corev1.Pod {
 	availablePods := []corev1.Pod{}
 	for _, pod := range podList.Items {
-		timeSinceCreation := time.Since(pod.CreationTimestamp.Time)
-		if pod.DeletionTimestamp == nil && timeSinceCreation > time.Duration(exposedeploy.Spec.MinAvailableTimeSec)*time.Second {
-			availablePods = append(availablePods, pod)
+		for _, condition := range pod.Status.Conditions {
+			if condition.Type == corev1.PodReady {
+				timeSinceCreation := time.Since(condition.LastTransitionTime.Time)
+				if pod.DeletionTimestamp == nil && timeSinceCreation > time.Duration(exposedeploy.Spec.MinAvailableTimeSec)*time.Second {
+					availablePods = append(availablePods, pod)
+				}
+			}
 		}
 	}
 	return availablePods
+}
+
+func (r *ExposeDeploymentReconciler) updateExposeDeploymentStatus(exposedeploy *exposedeployv1alpha1.ExposeDeployment, podList *corev1.PodList) {
+	availablePods := r.calculateAvailablePods(exposedeploy, podList)
+	exposedeploy.Status.AvailablePods = int32(len(availablePods))
+	exposedeploy.Status.ReadyPods = int32(len(availablePods))
+	exposedeploy.Status.Conditions = append(exposedeploy.Status.Conditions, exposedeployv1alpha1.CustomCondition{
+		Type:               exposedeployv1alpha1.LastReconcileSucceeded,
+		Status:             true,
+		LastTransitionTime: metav1.Now(),
+		Reason:             "updateResource",
+		Message:            "ExposeDeployment reconciled successfully",
+	})
 }
