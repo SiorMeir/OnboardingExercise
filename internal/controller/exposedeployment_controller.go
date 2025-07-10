@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -119,6 +120,17 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "expose-deploy",
 			Namespace: exposedeploy.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: labelsForApp(exposedeploy.Name),
+			Ports: []corev1.ServicePort{
+				{
+					Port: exposedeploy.Spec.PortDefinition.Port,
+					TargetPort: intstr.IntOrString{
+						IntVal: exposedeploy.Spec.PortDefinition.TargetPort,
+					},
+				},
+			},
 		},
 	}
 	if err = r.Create(ctx, service); err != nil {
