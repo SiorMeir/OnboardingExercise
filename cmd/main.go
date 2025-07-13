@@ -39,6 +39,7 @@ import (
 
 	exposedeployv1alpha1 "github.com/example/ExposeDeployment/api/v1alpha1"
 	"github.com/example/ExposeDeployment/internal/controller"
+	webhookexposedeployv1alpha1 "github.com/example/ExposeDeployment/internal/webhook/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -208,6 +209,13 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ExposeDeployment")
 		os.Exit(1)
+	}
+	// nolint:goconst
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		if err = webhookexposedeployv1alpha1.SetupExposeDeploymentWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create webhook", "webhook", "ExposeDeployment")
+			os.Exit(1)
+		}
 	}
 	// +kubebuilder:scaffold:builder
 
