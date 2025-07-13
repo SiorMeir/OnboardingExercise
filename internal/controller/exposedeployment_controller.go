@@ -120,8 +120,9 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// create service of exposedeploy based on the portdefinition
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "expose-deploy",
-			Namespace: exposedeploy.Namespace,
+			GenerateName: exposedeploy.Name + "-service-",
+			Namespace:    exposedeploy.Namespace,
+			Labels:       labelsForApp(exposedeploy.Name),
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: labelsForApp(exposedeploy.Name),
@@ -157,6 +158,8 @@ func (r *ExposeDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("exposedeployment").
 		Complete(r)
 }
+
+// Helper functions //
 
 // labelsForApp creates a simple set of labels for ExposeDeployment.
 func labelsForApp(name string) map[string]string {
@@ -221,7 +224,6 @@ func (r *ExposeDeploymentReconciler) updateExposeDeploymentStatus(exposedeploy *
 }
 
 func (r *ExposeDeploymentReconciler) gracefullyDeleteResourceAndService(ctx context.Context, podList *corev1.PodList, service *corev1.Service) (ctrl.Result, error) {
-
 	// delete all pods of exposedeploy and wait for them to be deleted
 	for _, pod := range podList.Items {
 		if err := r.Delete(ctx, &pod); err != nil {
