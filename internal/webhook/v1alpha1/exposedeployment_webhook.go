@@ -64,7 +64,10 @@ func (d *ExposeDeploymentCustomDefaulter) Default(ctx context.Context, obj runti
 		return fmt.Errorf("expected an ExposeDeployment object but got %T", obj)
 	}
 	exposedeploymentlog.Info("Defaulting for ExposeDeployment", "name", exposedeployment.GetName())
-
+	if exposedeployment.Spec.MinAvailableTimeSec%2 != 0 {
+		exposedeploymentlog.Info("MinAvailableTimeSec is odd, doubling it", "name", exposedeployment.GetName(), "minAvailableTimeSec", exposedeployment.Spec.MinAvailableTimeSec)
+		exposedeployment.Spec.MinAvailableTimeSec *= 2
+	}
 	// TODO(user): fill in your defaulting logic.
 
 	return nil
