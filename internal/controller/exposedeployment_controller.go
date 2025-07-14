@@ -167,6 +167,7 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 					TargetPort: intstr.IntOrString{
 						IntVal: exposedeploy.Spec.PortDefinition.TargetPort,
 					},
+					Protocol: corev1.ProtocolTCP,
 				},
 			},
 		},
