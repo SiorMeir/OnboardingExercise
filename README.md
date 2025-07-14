@@ -25,11 +25,11 @@ Exercise description [here](https://runai.atlassian.net/wiki/spaces/EN/pages/269
   * [X] `Replicas` (max 10)
   * [X] `MinAvailableTimeSec` (double if odd)
   * [X] `Args` (command-line args)
-  * [ ] `Envs` (environment variables)
+  * [X] `Envs` (environment variables)
 
-  * [ ] `Ports` with:
-    * [ ] `TargetPort`
-    * [ ] `Port`
+  * [X] `Ports` with:
+    * [X] `TargetPort`
+    * [X] `Port`
 
 * [X] Define `status` with:
   * [X] `ReadyPods`
@@ -46,18 +46,18 @@ Exercise description [here](https://runai.atlassian.net/wiki/spaces/EN/pages/269
 
 ### 🔁 Controller Logic
 
-* [ ] Create controller that watches `ExposeDeployment` CRs
-* [ ] Set up the manager with cache limited to owned pods
+* [X] Create controller that watches `ExposeDeployment` CRs
+* [X] Set up the manager with cache limited to owned pods
 * [ ] Reconciliation logic:
 
-  * [ ] Create pods owned by the CR (label: `ExposeDeployment: <CR name>`)
-  * [ ] Create non-owned services for exposed ports
-  * [ ] Maintain desired replica count
+  * [X] Create pods owned by the CR (label: `ExposeDeployment: <CR name>`)
+  * [X] Create non-owned services for exposed ports
+  * [X] Maintain desired replica count
   * [ ] Validate and transform `MinAvailableTimeSec` if needed
   * [ ] Track pod readiness and availability
   * [ ] Update CR `status` and `conditions` accordingly
   * [ ] Ensure reconciliation is idempotent and only affects `spec`-defined fields
-  * [ ] On deletion of CR, clean up associated pods and services
+  * [X] On deletion of CR, clean up associated pods and services
 
 ---
 

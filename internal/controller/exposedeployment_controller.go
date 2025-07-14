@@ -24,8 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	exposedeployv1alpha1 "github.com/example/ExposeDeployment/api/v1alpha1"
 )
@@ -36,10 +38,13 @@ type ExposeDeploymentReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+const finalizerName = "exposedeploy.finalizers.example.com"
+
 // +kubebuilder:rbac:groups=exposedeploy.example.com,resources=exposedeployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=exposedeploy.example.com,resources=exposedeployments/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=exposedeploy.example.com,resources=exposedeployments/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -60,10 +65,43 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return ctrl.Result{}, err
 	}
+
 	// list all pods of exposedeploy
 	podList := &corev1.PodList{}
 	if err = r.List(ctx, podList, client.InNamespace(exposedeploy.Namespace), client.MatchingLabels(labelsForApp(exposedeploy.Name))); err != nil {
 		return ctrl.Result{}, err
+	}
+
+	// examine DeletionTimestamp to determine if object is under deletion
+	if exposedeploy.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is not being deleted, so if it does not have our finalizer,
+		// then let's add the finalizer and update the object. This is equivalent
+		// to registering our finalizer.
+		if !controllerutil.ContainsFinalizer(exposedeploy, finalizerName) {
+			controllerutil.AddFinalizer(exposedeploy, finalizerName)
+			if err := r.Update(ctx, exposedeploy); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(exposedeploy, finalizerName) {
+			// our finalizer is present, so let's handle any external dependency
+			if _, err := r.gracefullyDeleteResourceAndService(ctx, podList, exposedeploy); err != nil {
+				// if fail to delete the external dependency here, return with error
+				// so that it can be retried.
+				return ctrl.Result{}, err
+			}
+
+			// remove our finalizer from the list and update it.
+			controllerutil.RemoveFinalizer(exposedeploy, finalizerName)
+			if err := r.Update(ctx, exposedeploy); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		// Stop reconciliation as the item is being deleted
+		return ctrl.Result{}, nil
 	}
 
 	desiredReplicas := int(exposedeploy.Spec.Replicas)
@@ -81,6 +119,7 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 							APIVersion: "exposedeploy.example.com/v1alpha1",
 							Kind:       "ExposeDeployment",
 							Name:       exposedeploy.Name,
+							UID:        exposedeploy.UID,
 						},
 					},
 				},
@@ -115,15 +154,28 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	r.updateExposeDeploymentStatus(exposedeploy, podList)
 
 	// create service of exposedeploy based on the portdefinition
-	service := &corev1.Service{
+	service := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "expose-deploy",
+			Name:      exposedeploy.Name + "-service",
 			Namespace: exposedeploy.Namespace,
+			Labels:    labelsForApp(exposedeploy.Name),
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port: exposedeploy.Spec.PortDefinition.Port,
+					TargetPort: intstr.IntOrString{
+						IntVal: exposedeploy.Spec.PortDefinition.TargetPort,
+					},
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
 		},
 	}
-	if err = r.Create(ctx, service); err != nil {
+	if err = r.Create(ctx, &service); err != nil {
 		return ctrl.Result{}, err
 	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -134,6 +186,8 @@ func (r *ExposeDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("exposedeployment").
 		Complete(r)
 }
+
+// Helper functions //
 
 // labelsForApp creates a simple set of labels for ExposeDeployment.
 func labelsForApp(name string) map[string]string {
@@ -195,4 +249,32 @@ func (r *ExposeDeploymentReconciler) updateExposeDeploymentStatus(exposedeploy *
 			}
 		}
 	}
+}
+
+func (r *ExposeDeploymentReconciler) gracefullyDeleteResourceAndService(ctx context.Context, podList *corev1.PodList, exposedeploy *exposedeployv1alpha1.ExposeDeployment) (ctrl.Result, error) {
+	// delete all pods of exposedeploy and wait for them to be deleted
+	for _, pod := range podList.Items {
+		if err := r.Delete(ctx, &pod); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	// wait for all pods to be deleted
+	for _, pod := range podList.Items {
+		if err := r.Get(ctx, client.ObjectKey{Name: pod.Name, Namespace: pod.Namespace}, &pod); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+	svc := &corev1.Service{}
+	err := r.Get(ctx, client.ObjectKey{
+		Name:      exposedeploy.Name + "-service",
+		Namespace: exposedeploy.Namespace,
+	}, svc)
+	if err == nil {
+		if err := r.Delete(ctx, svc); err != nil {
+			return ctrl.Result{}, err
+		}
+	} else if !errors.IsNotFound(err) {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
 }
