@@ -53,10 +53,10 @@ Exercise description [here](https://runai.atlassian.net/wiki/spaces/EN/pages/269
   * [X] Create pods owned by the CR (label: `ExposeDeployment: <CR name>`)
   * [X] Create non-owned services for exposed ports
   * [X] Maintain desired replica count
-  * [ ] Validate and transform `MinAvailableTimeSec` if needed
+  * [X] Validate and transform `MinAvailableTimeSec` if needed
   * [ ] Track pod readiness and availability
   * [ ] Update CR `status` and `conditions` accordingly
-  * [ ] Ensure reconciliation is idempotent and only affects `spec`-defined fields
+  * [X] Ensure reconciliation is idempotent and only affects `spec`-defined fields
   * [X] On deletion of CR, clean up associated pods and services
 
 ---
