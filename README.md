@@ -19,7 +19,7 @@ Exercise description [here](https://runai.atlassian.net/wiki/spaces/EN/pages/269
 
 ### 📦 Define Custom Resource Definition (CRD)
 
-* [ ] Define `ExposeDeployment` CRD with the following `spec` fields:
+* [X] Define `ExposeDeployment` CRD with the following `spec` fields:
 
   * [X] `Image` (non-empty string, immutable)
   * [X] `Replicas` (max 10)
