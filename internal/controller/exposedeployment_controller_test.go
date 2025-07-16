@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -100,20 +101,25 @@ var _ = Describe("ExposeDeployment Controller", func() {
 				NamespacedName: typeNamespacedName,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+
 			By("Listing all pods in namespace and asserting that len is 1")
 			pods := &corev1.PodList{}
 			err = k8sClient.List(ctx, pods, client.InNamespace("my-namespace"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(pods.Items)).To(Equal(1))
 			Expect(pods.Items[0].Name).To(ContainSubstring(resourceName))
+
 			By("Listing all services in namespace and asserting that len is 1")
 			services := &corev1.ServiceList{}
 			err = k8sClient.List(ctx, services, client.InNamespace("my-namespace"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(services.Items)).To(Equal(1))
 			Expect(services.Items[0].Name).To(ContainSubstring(resourceName))
+
+			By("making sure that the service has the ports specified in the spec")
+			Expect(services.Items[0].Spec.Ports).To(HaveLen(1))
+			Expect(services.Items[0].Spec.Ports[0].Port).To(Equal(int32(80)))
+			Expect(services.Items[0].Spec.Ports[0].TargetPort).To(Equal(intstr.FromInt(80)))
 		})
 	})
 })
