@@ -21,8 +21,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,20 +40,34 @@ var _ = Describe("ExposeDeployment Controller", func() {
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: "my-namespace",
 		}
 		exposedeployment := &exposedeployv1alpha1.ExposeDeployment{}
 
 		BeforeEach(func() {
+			By("creating the namespace if not exists")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-namespace",
+				},
+			}
+			Expect(k8sClient.Create(ctx, namespace)).To(Succeed())
+
 			By("creating the custom resource for the Kind ExposeDeployment")
 			err := k8sClient.Get(ctx, typeNamespacedName, exposedeployment)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &exposedeployv1alpha1.ExposeDeployment{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
-						Namespace: "default",
+						Namespace: "my-namespace",
 					},
-					// TODO(user): Specify other spec details if needed.
+					Spec: exposedeployv1alpha1.ExposeDeploymentSpec{
+						Replicas:            1,
+						Image:               "busybox:latest",
+						MinAvailableTimeSec: 5,
+						CustomEnv:           []string{"echo hello"},
+						PortDefinition:      exposedeployv1alpha1.PortDefinition{Port: 80, TargetPort: 80},
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
@@ -65,6 +81,13 @@ var _ = Describe("ExposeDeployment Controller", func() {
 
 			By("Cleanup the specific resource instance ExposeDeployment")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			By("deleting the namespace")
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-namespace",
+				},
+			}
+			Expect(k8sClient.Delete(ctx, namespace)).To(Succeed())
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
@@ -79,6 +102,18 @@ var _ = Describe("ExposeDeployment Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
 			// Example: If you expect a certain status condition after reconciliation, verify it here.
+			By("Listing all pods in namespace and asserting that len is 1")
+			pods := &corev1.PodList{}
+			err = k8sClient.List(ctx, pods, client.InNamespace("my-namespace"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(pods.Items)).To(Equal(1))
+			Expect(pods.Items[0].Name).To(ContainSubstring(resourceName))
+			By("Listing all services in namespace and asserting that len is 1")
+			services := &corev1.ServiceList{}
+			err = k8sClient.List(ctx, services, client.InNamespace("my-namespace"))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(services.Items)).To(Equal(1))
+			Expect(services.Items[0].Name).To(ContainSubstring(resourceName))
 		})
 	})
 })
