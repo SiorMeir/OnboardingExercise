@@ -68,6 +68,7 @@ func (d *ExposeDeploymentCustomDefaulter) Default(ctx context.Context, obj runti
 		exposedeploymentlog.Info("MinAvailableTimeSec is odd, doubling it", "name", exposedeployment.GetName(), "minAvailableTimeSec", exposedeployment.Spec.MinAvailableTimeSec)
 		exposedeployment.Spec.MinAvailableTimeSec *= 2
 	}
+	//remove all the todos
 	// TODO(user): fill in your defaulting logic.
 
 	return nil
@@ -96,7 +97,7 @@ func (v *ExposeDeploymentCustomValidator) ValidateCreate(ctx context.Context, ob
 		return nil, fmt.Errorf("expected a ExposeDeployment object but got %T", obj)
 	}
 	exposedeploymentlog.Info("Validation for ExposeDeployment upon creation", "name", exposedeployment.GetName())
-
+	// should add code here
 	// TODO(user): fill in your validation logic upon object creation.
 
 	return nil, nil
@@ -109,7 +110,7 @@ func (v *ExposeDeploymentCustomValidator) ValidateUpdate(ctx context.Context, ol
 		return nil, fmt.Errorf("expected a ExposeDeployment object for the newObj but got %T", newObj)
 	}
 	exposedeploymentlog.Info("Validation for ExposeDeployment upon update", "name", exposedeployment.GetName())
-
+	// if no need to validate just return nil
 	// TODO(user): fill in your validation logic upon object update.
 
 	return nil, nil
@@ -122,7 +123,7 @@ func (v *ExposeDeploymentCustomValidator) ValidateDelete(ctx context.Context, ob
 		return nil, fmt.Errorf("expected a ExposeDeployment object but got %T", obj)
 	}
 	exposedeploymentlog.Info("Validation for ExposeDeployment upon deletion", "name", exposedeployment.GetName())
-
+	// if no need to validate just return nil
 	// TODO(user): fill in your validation logic upon object deletion.
 
 	return nil, nil
