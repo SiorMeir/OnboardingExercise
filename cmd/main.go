@@ -57,6 +57,7 @@ func init() {
 
 // nolint:gocyclo
 func main() {
+	// move to var block, my preference is using strcut for this
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var webhookCertPath, webhookCertName, webhookCertKey string
@@ -211,6 +212,7 @@ func main() {
 		os.Exit(1)
 	}
 	// nolint:goconst
+	// use a config for accessing configuration rather access direct env var,
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err = webhookexposedeployv1alpha1.SetupExposeDeploymentWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "ExposeDeployment")
