@@ -68,13 +68,10 @@ func (d *ExposeDeploymentCustomDefaulter) Default(ctx context.Context, obj runti
 		exposedeploymentlog.Info("MinAvailableTimeSec is odd, doubling it", "name", exposedeployment.GetName(), "minAvailableTimeSec", exposedeployment.Spec.MinAvailableTimeSec)
 		exposedeployment.Spec.MinAvailableTimeSec *= 2
 	}
-	//remove all the todos
-	// TODO(user): fill in your defaulting logic.
 
 	return nil
 }
 
-// TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 // NOTE: The 'path' attribute must follow a specific pattern and should not be modified directly here.
 // Modifying the path for an invalid path can cause API server errors; failing to locate the webhook.
 // +kubebuilder:webhook:path=/validate-exposedeploy-example-com-v1alpha1-exposedeployment,mutating=false,failurePolicy=fail,sideEffects=None,groups=exposedeploy.example.com,resources=exposedeployments,verbs=create;update,versions=v1alpha1,name=vexposedeployment-v1alpha1.kb.io,admissionReviewVersions=v1
@@ -85,7 +82,6 @@ func (d *ExposeDeploymentCustomDefaulter) Default(ctx context.Context, obj runti
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
 type ExposeDeploymentCustomValidator struct {
-	// TODO(user): Add more fields as needed for validation
 }
 
 var _ webhook.CustomValidator = &ExposeDeploymentCustomValidator{}
@@ -98,6 +94,7 @@ func (v *ExposeDeploymentCustomValidator) ValidateCreate(ctx context.Context, ob
 	}
 	exposedeploymentlog.Info("Validation for ExposeDeployment upon creation", "name", exposedeployment.GetName())
 	// should add code here
+	// RESPONSE: all validations have been done using kubebuilder markers. Do we still need to add code here?
 	// TODO(user): fill in your validation logic upon object creation.
 
 	return nil, nil
@@ -105,26 +102,10 @@ func (v *ExposeDeploymentCustomValidator) ValidateCreate(ctx context.Context, ob
 
 // ValidateUpdate implements webhook.CustomValidator so a webhook will be registered for the type ExposeDeployment.
 func (v *ExposeDeploymentCustomValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	exposedeployment, ok := newObj.(*exposedeployv1alpha1.ExposeDeployment)
-	if !ok {
-		return nil, fmt.Errorf("expected a ExposeDeployment object for the newObj but got %T", newObj)
-	}
-	exposedeploymentlog.Info("Validation for ExposeDeployment upon update", "name", exposedeployment.GetName())
-	// if no need to validate just return nil
-	// TODO(user): fill in your validation logic upon object update.
-
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.CustomValidator so a webhook will be registered for the type ExposeDeployment.
 func (v *ExposeDeploymentCustomValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	exposedeployment, ok := obj.(*exposedeployv1alpha1.ExposeDeployment)
-	if !ok {
-		return nil, fmt.Errorf("expected a ExposeDeployment object but got %T", obj)
-	}
-	exposedeploymentlog.Info("Validation for ExposeDeployment upon deletion", "name", exposedeployment.GetName())
-	// if no need to validate just return nil
-	// TODO(user): fill in your validation logic upon object deletion.
-
 	return nil, nil
 }

@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"log"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -55,7 +56,6 @@ const finalizerName = "exposedeploy.finalizers.example.com"
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
 // the ExposeDeployment object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
@@ -67,38 +67,23 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	err := r.Get(ctx, req.NamespacedName, exposedeploy)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// I will add log here to indicate that the ExposeDeployment was not found
 			// assume deleted
+			log.Printf("ExposeDeployment %s not found", req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 	// better to first check if the ExposeDeployment is marked to be deleted, before waste time on other operations
-	// list all pods of exposedeploy
-
 	// also make sure the pods are owned by the ExposeDeployment
 	// maybe there are some pods that are not owned by the ExposeDeployment, so we need to filter them out
+
+	// list all pods of exposedeploy
 	podList := &corev1.PodList{}
 	if err = r.List(ctx, podList, client.InNamespace(exposedeploy.Namespace), client.MatchingLabels(labelsForApp(exposedeploy.Name))); err != nil {
 		return ctrl.Result{}, err
 	}
-
 	// examine DeletionTimestamp to determine if object is under deletion
-	if exposedeploy.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is not being deleted, so if it does not have our finalizer,
-		// then let's add the finalizer and update the object. This is equivalent
-		// to registering our finalizer.
-
-		if !controllerutil.ContainsFinalizer(exposedeploy, finalizerName) {
-			controllerutil.AddFinalizer(exposedeploy, finalizerName)
-			if err := r.Update(ctx, exposedeploy); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-		// it's clear to have a condition !exposedeploy.ObjectMeta.DeletionTimestamp.IsZero()
-		// and handle delete state and return
-		// and not having if else flow
-	} else {
+	if !exposedeploy.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(exposedeploy, finalizerName) {
 			// our finalizer is present, so let's handle any external dependency
@@ -115,14 +100,90 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			if err := r.Update(ctx, exposedeploy); err != nil {
 				return ctrl.Result{}, err
 			}
-
 		}
-
 		// Stop reconciliation as the item is being deleted
 		return ctrl.Result{}, nil
 	}
+
+	// The object is not being deleted, so if it does not have our finalizer,
+	// then let's add the finalizer and update the object. This is equivalent
+	// to registering our finalizer.
+	if !controllerutil.ContainsFinalizer(exposedeploy, finalizerName) {
+		controllerutil.AddFinalizer(exposedeploy, finalizerName)
+		if err := r.Update(ctx, exposedeploy); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 	// the main reconciliation function should have only functions call and not logic
 	// this make it easier to read and maintain
+	desiredReplicas, currentPodCount, r1, err := scaleOutPods(ctx, exposedeploy, podList, req, r)
+	if err != nil {
+		r.updateExposeDeploymentStatus(exposedeploy, podList)
+		return r1, err
+	}
+
+	// 4. Scale down if needed ,exclude terminating pods by deletionTimestamp
+	// it fill like bug here, I will fist calculate the number of terminating pods
+	// and then check if need to scale up or down
+	r2, err := scaleInPods(ctx, podList, currentPodCount, desiredReplicas, r)
+	if err != nil {
+		r.updateExposeDeploymentStatus(exposedeploy, podList)
+		return r2, err
+	}
+	// update status of exposedeploy
+	r.updateExposeDeploymentStatus(exposedeploy, podList)
+	r3, err := createService(ctx, exposedeploy, err, r)
+	if err != nil {
+		return r3, err
+	}
+
+	// where is the update status of the ExposeDeployment?
+	// client.Status.Update(ctx, exposedeploy)
+
+	return ctrl.Result{}, nil
+}
+
+func createService(ctx context.Context, exposedeploy *exposedeployv1alpha1.ExposeDeployment, err error, r *ExposeDeploymentReconciler) (ctrl.Result, error) {
+	service := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      exposedeploy.Name + "-service",
+			Namespace: exposedeploy.Namespace,
+			Labels:    labelsForApp(exposedeploy.Name),
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port: exposedeploy.Spec.PortDefinition.Port,
+					TargetPort: intstr.IntOrString{
+						IntVal: exposedeploy.Spec.PortDefinition.TargetPort,
+					},
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+	if err = r.Create(ctx, &service); err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
+func scaleInPods(ctx context.Context, podList *corev1.PodList, currentPodCount int, desiredReplicas int, r *ExposeDeploymentReconciler) (ctrl.Result, error) {
+	numOfTerminatingPods := calculateNumOfTerminatingPods(podList)
+	if currentPodCount-numOfTerminatingPods > desiredReplicas {
+		excess := currentPodCount - desiredReplicas - numOfTerminatingPods
+		for i := range excess {
+			pod := podList.Items[i]
+			// Not all pods are equal, delete by state of the pod, better to delete non running pods < ruunning pods < ready pods
+			if err := r.Delete(ctx, &pod); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+	return ctrl.Result{}, nil
+}
+
+func scaleOutPods(ctx context.Context, exposedeploy *exposedeployv1alpha1.ExposeDeployment, podList *corev1.PodList, req ctrl.Request, r *ExposeDeploymentReconciler) (int, int, ctrl.Result, error) {
 	desiredReplicas := int(exposedeploy.Spec.Replicas)
 	// should fitler any pod mark for deletion pods
 	currentPodCount := len(podList.Items)
@@ -162,62 +223,12 @@ func (r *ExposeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 			// err =
 			if err := r.Create(ctx, &pod); err != nil {
-				return ctrl.Result{}, err
+				return 0, 0, ctrl.Result{}, err
 			}
 
 		}
 	}
-
-	// 4. Scale down if needed ,exclude terminating pods by deletionTimestamp
-	// it fill like bug here, I will fist calculate the number of terminating pods
-	// and then check if need to scale up or down
-	numOfTerminatingPods := calculateNumOfTerminatingPods(podList)
-	if currentPodCount-numOfTerminatingPods > desiredReplicas {
-		excess := currentPodCount - desiredReplicas - numOfTerminatingPods
-		for i := range excess {
-			pod := podList.Items[i]
-			// Not all pods are equal, delete by state of the pod, better to delete non running pods < ruunning pods < ready pods
-			if err := r.Delete(ctx, &pod); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	}
-	// update status of exposedeploy
-
-	// You allways want to update the status of the ExposeDeployment
-	// if there is error or not
-
-	//
-	r.updateExposeDeploymentStatus(exposedeploy, podList)
-	// make sure you check if you need service at all not just to create it blindly
-	// create a function to create the service
-	// create service of exposedeploy based on the portdefinition
-	service := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      exposedeploy.Name + "-service",
-			Namespace: exposedeploy.Namespace,
-			Labels:    labelsForApp(exposedeploy.Name),
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Port: exposedeploy.Spec.PortDefinition.Port,
-					TargetPort: intstr.IntOrString{
-						IntVal: exposedeploy.Spec.PortDefinition.TargetPort,
-					},
-					Protocol: corev1.ProtocolTCP,
-				},
-			},
-		},
-	}
-	if err = r.Create(ctx, &service); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	// where is the update status of the ExposeDeployment?
-	// client.Status.Update(ctx, exposedeploy)
-
-	return ctrl.Result{}, nil
+	return desiredReplicas, currentPodCount, ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -247,7 +258,7 @@ func calculateNumOfTerminatingPods(podList *corev1.PodList) int {
 
 // calculateAvailablePods creates a list of available pods with respect to the minavailabletimesec
 // if you only use minAvailableTimeSec just pass it as arg not the entire struct (Solid)
-func (r *ExposeDeploymentReconciler) calculateAvailablePods(exposedeploy *exposedeployv1alpha1.ExposeDeployment, podList *corev1.PodList) []corev1.Pod {
+func (r *ExposeDeploymentReconciler) calculateAvailablePods(MinAvailableTimeSec int32, podList *corev1.PodList) []corev1.Pod {
 	availablePods := []corev1.Pod{}
 	for _, pod := range podList.Items {
 		for _, condition := range pod.Status.Conditions {
@@ -255,7 +266,7 @@ func (r *ExposeDeploymentReconciler) calculateAvailablePods(exposedeploy *expose
 				timeSinceCreation := time.Since(condition.LastTransitionTime.Time)
 				// filter out terminating pods, here it make the condition more complicated
 				// you need to check time pass from now since the change of condition in respect to minAvailabletime
-				if pod.DeletionTimestamp == nil && timeSinceCreation > time.Duration(exposedeploy.Spec.MinAvailableTimeSec)*time.Second {
+				if pod.DeletionTimestamp == nil && timeSinceCreation > time.Duration(MinAvailableTimeSec)*time.Second {
 					availablePods = append(availablePods, pod)
 				}
 			}
@@ -265,7 +276,7 @@ func (r *ExposeDeploymentReconciler) calculateAvailablePods(exposedeploy *expose
 }
 
 func (r *ExposeDeploymentReconciler) updateExposeDeploymentStatus(exposedeploy *exposedeployv1alpha1.ExposeDeployment, podList *corev1.PodList) {
-	availablePods := r.calculateAvailablePods(exposedeploy, podList)
+	availablePods := r.calculateAvailablePods(exposedeploy.Spec.MinAvailableTimeSec, podList)
 	exposedeploy.Status.AvailablePods = int32(len(availablePods))
 	// availablePods != readyPods
 	exposedeploy.Status.ReadyPods = int32(len(availablePods))
@@ -304,16 +315,9 @@ func (r *ExposeDeploymentReconciler) updateExposeDeploymentStatus(exposedeploy *
 func (r *ExposeDeploymentReconciler) gracefullyDeleteResourceAndService(ctx context.Context, podList *corev1.PodList, exposedeploy *exposedeployv1alpha1.ExposeDeployment) (ctrl.Result, error) {
 	// delete all pods of exposedeploy and wait for them to be deleted
 	// you dont need to delete the pods as we have the ownership meachnism, the k8s GC will take care of deleting the pods
+	// RESPONSE: This is a practice of manual deletion of resources.
 	for _, pod := range podList.Items {
 		if err := r.Delete(ctx, &pod); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-	// you dont wait for actions to be completed, you assume the operation will be completed, as this eventully consistent
-	// you will check in the next reconcile loop if the pods are deleted or not
-	// wait for all pods to be deleted
-	for _, pod := range podList.Items {
-		if err := r.Get(ctx, client.ObjectKey{Name: pod.Name, Namespace: pod.Namespace}, &pod); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -324,6 +328,7 @@ func (r *ExposeDeploymentReconciler) gracefullyDeleteResourceAndService(ctx cont
 		Namespace: exposedeploy.Namespace,
 	}, svc)
 	// make sure the service is owned by the ExposeDeployment
+	// RESPONSE: this is by design as it is part of the exercise spec
 	if err == nil {
 		if err := r.Delete(ctx, svc); err != nil {
 			return ctrl.Result{}, err

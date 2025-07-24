@@ -28,8 +28,6 @@ type ExposeDeploymentSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of ExposeDeployment. Edit exposedeployment_types.go to remove/update
-	// Foo string `json:"foo,omitempty"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Value is immutable"
 	Image string `json:"image"`
 	// +kubebuilder:validation:Maximum=10
